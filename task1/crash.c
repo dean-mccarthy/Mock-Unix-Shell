@@ -4,8 +4,14 @@
 #include <unistd.h>
 #include <string.h>
 #include <assert.h>
+#include <signal.h>
 
 #define MAXLINE 1024
+
+void zombieSlayer(int signum) {
+    wait(NULL);
+}
+
 void quit(const char **toks) {
     if (toks[1] != NULL) {
             const char *msg = "ERROR: quit takes no arguments\n";
@@ -75,20 +81,38 @@ void background(const char **toks) {
 
 void runProcess(const char **toks, bool bg) {
     char *process = toks[0];
-    int i = 1;
-    char *args[] = {};
+    int i = 0;
+    char *args[MAXLINE] = {};
     while (toks[i] != NULL)
     {
-        //do something with arg
-        args[i-1] = toks[i];
+        args[i] = toks[i];
         i++;
     }  
-    if (bg)
+    args[i] = NULL;
+    if (bg) //using & signal
     {
-        //run process in bg
+        pid_t child = fork();
+        if (child == 0) {
+            int run = execvp(toks[0], args);
+            if (run == -1)
+            {
+                printf("child:Function not found\n");
+                kill(getpid(), SIGKILL);
+            }
+        } else {
+            return;
+        }
     } else {
-        execvp(toks[0], args);
-    }       
+        int run = execvp(toks[0], args);
+        if (run == -1)
+        {
+            printf("FXN failed to run\n");
+
+        } else {
+            printf("FXN run\n"); //should never get here
+        }
+    }     
+    
 }
 
 void eval(const char **toks, bool bg) { // bg is true iff command ended with &
@@ -107,6 +131,7 @@ void eval(const char **toks, bool bg) { // bg is true iff command ended with &
     } else {
         runProcess(toks, bg);
     }
+    main();
 }
 
 void parse_and_eval(char *s) {
