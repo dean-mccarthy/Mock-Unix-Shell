@@ -7,6 +7,21 @@
 #include <signal.h>
 
 #define MAXLINE 1024
+#define MAXJOBS 2147483647
+#define RUNNING 1
+#define STOPPED 0
+#define SUSPENDED -1
+
+typedef struct {
+    pid_t PID;
+    size_t jobNum;
+    int status; //1:running, 0:finished, -1:suspended
+    const char* name;
+} job;
+
+
+static int currJob = 1;
+static job jobList[MAXLINE];
 
 void zombieSlayer(int signum) {
     wait(NULL);
@@ -21,8 +36,34 @@ void quit(const char **toks) {
     }
 }
 
+void printJob(int i) {
+    job currJob = jobList[i];
+        const char *status;
+        switch(currJob.status) {
+            case 1:
+                status = "running";
+                break;
+            case 0:
+                status = "finished";
+                break;
+            case -1:
+                status = "suspended";
+                break;
+            default:
+                status = NULL;
+        }
+        const char* msg = (char*)malloc(MAXLINE);
+        snprintf(msg, MAXLINE, "[%d] (%d)   %s  %s\n", i, currJob.PID, status, currJob.name);
+        write(STDOUT_FILENO, msg, strlen(msg));
+}
+
 void jobs() {
-    //list jobs;
+    int i = 1;
+    while (jobList[i].PID != 0)
+    {
+        printJob(i);
+        i++;
+    }
 }
 
 void nuke(const char **toks) {
@@ -91,8 +132,14 @@ void runProcess(const char **toks, bool bg) {
     args[i] = NULL;
     if (bg) //using & signal
     {
+        sigset_t mask;
+        sigemptyset(&mask);
+        sigaddset(&mask, SIGCHLD);
+        sigprocmask(SIG_BLOCK, &mask, NULL);
+        
         pid_t child = fork();
         if (child == 0) {
+            sigprocmask(SIG_UNBLOCK, &mask, NULL);
             int run = execvp(toks[0], args);
             if (run == -1)
             {
@@ -100,7 +147,10 @@ void runProcess(const char **toks, bool bg) {
                 kill(getpid(), SIGKILL);
             }
         } else {
-            return;
+            job childJob = { child, currJob++, RUNNING, toks[0]};
+            jobList[currJob - 1] = childJob;
+            printJob(currJob - 1);
+            sigprocmask(SIG_UNBLOCK, &mask, NULL);
         }
     } else {
         int run = execvp(toks[0], args);

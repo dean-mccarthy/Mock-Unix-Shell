@@ -36,11 +36,8 @@ void quit(const char **toks) {
     }
 }
 
-void jobs() {
-    int i = 1;
-    while (jobList[i].PID != 0)
-    {
-        job currJob = jobList[i];
+void printJob(int i) {
+    job currJob = jobList[i];
         const char *status;
         switch(currJob.status) {
             case 1:
@@ -58,6 +55,13 @@ void jobs() {
         const char* msg = (char*)malloc(MAXLINE);
         snprintf(msg, MAXLINE, "[%d] (%d)   %s  %s\n", i, currJob.PID, status, currJob.name);
         write(STDOUT_FILENO, msg, strlen(msg));
+}
+
+void jobs() {
+    int i = 1;
+    while (jobList[i].PID != 0)
+    {
+        printJob(i);
         i++;
     }
 }
@@ -144,9 +148,9 @@ void runProcess(const char **toks, bool bg) {
             }
         } else {
             job childJob = { child, currJob++, RUNNING, toks[0]};
-            jobList[currJob- 1] = childJob;
+            jobList[currJob - 1] = childJob;
+            printJob(currJob - 1);
             sigprocmask(SIG_UNBLOCK, &mask, NULL);
-            return;
         }
     } else {
         int run = execvp(toks[0], args);
