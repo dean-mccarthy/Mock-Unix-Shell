@@ -13,6 +13,7 @@
 #define FINISHED 0
 #define SUSPENDED -1
 
+
 typedef struct {
     pid_t PID;
     int jobNum;
@@ -338,7 +339,14 @@ static void handler(int num) {
         int jobNum = getJobNum(pidOut);
         job *deadJob = jobList[jobNum];
         deadJob->valid = false;
-        if (status) deadJob->dump = true;
+        #ifdef WCOREDUMP
+        if (WIFSIGNALED(status))
+            {
+                deadJob->dump = WCOREDUMP(status);
+            }
+        #endif
+        
+        
         
         if (deadJob->status != KILLED) deadJob->status = FINISHED;
         printJob(jobNum);
