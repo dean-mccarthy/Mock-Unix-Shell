@@ -19,6 +19,7 @@ typedef struct {
     int status; //1:running, 0:finished, -1:suspended 2:killed
     const char *name;
     bool valid;
+    bool dump;
 } job;
 
 
@@ -68,9 +69,12 @@ static void printJob(int i) {
             default:
                 status = NULL;
         }
+        const char *outState = "";
+        if (currJob->dump) outState = " (core dumped)"; 
+        
         const char* msg = (char*)malloc(MAXLINE);
         const char *name = currJob->name;
-        snprintf(msg, MAXLINE, "[%d] (%d)  %s  %s\n", i, currJob->PID, status, currJob->name);
+        snprintf(msg, MAXLINE, "[%d] (%d)  %s%s  %s\n", i, currJob->PID, status, outState, currJob->name);
         write(STDOUT_FILENO, msg, strlen(msg));
 }
 
@@ -220,6 +224,7 @@ static void runProcess(const char **toks, bool bg) {
             childJob->status = RUNNING;
             childJob->name = strdup(process);
             childJob->valid = true;
+            childJob->dump = false;
             jobList[currJob - 1] = childJob;
             printJob(currJob - 1);
             sigprocmask(SIG_UNBLOCK, &mask, NULL);
@@ -333,6 +338,8 @@ static void handler(int num) {
         int jobNum = getJobNum(pidOut);
         job *deadJob = jobList[jobNum];
         deadJob->valid = false;
+        if (status) deadJob->dump = true;
+        
         if (deadJob->status != KILLED) deadJob->status = FINISHED;
         printJob(jobNum);
     }
