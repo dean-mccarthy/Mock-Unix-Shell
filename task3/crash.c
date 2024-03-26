@@ -17,7 +17,7 @@ typedef struct {
     pid_t PID;
     int jobNum;
     int status; //1:running, 0:finished, -1:suspended 2:killed
-    const char* name;
+    const char *name;
     bool valid;
 } job;
 
@@ -25,10 +25,13 @@ typedef struct {
 static int currJob = 1;
 static job *jobList[MAXJOBS];
 
+
 static int getJobNum(int PID) {
     for (size_t i = currJob; i > 0; i--)
     {
+        pid_t currPID;
         job *jobSearch = jobList[i];
+        if (jobSearch) currPID = jobSearch->PID;
         if (jobSearch && jobSearch->PID == PID) {
             return jobSearch->jobNum;
         }
@@ -66,7 +69,8 @@ static void printJob(int i) {
                 status = NULL;
         }
         const char* msg = (char*)malloc(MAXLINE);
-        snprintf(msg, MAXLINE, "[%d] (%d)   %s  %s\n", i, currJob->PID, status, currJob->name);
+        const char *name = currJob->name;
+        snprintf(msg, MAXLINE, "[%d] (%d)  %s  %s\n", i, currJob->PID, status, currJob->name);
         write(STDOUT_FILENO, msg, strlen(msg));
 }
 
@@ -81,6 +85,12 @@ static void jobs() {
 }
 
 static void nuke(const char **toks) {
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+    sigaddset(&mask, SIGTERM);
+    sigaddset(&mask, SIGINT);
+    sigprocmask(SIG_BLOCK, &mask, NULL);
     if (toks[1] == NULL) {
         //KILL all
         for (size_t i = 1; i < currJob; i++)
@@ -89,7 +99,8 @@ static void nuke(const char **toks) {
             if (killJob && killJob->status == 1)
             {
                 killJob->status = 2;
-                kill(killJob->PID, SIGKILL);
+                pid_t killJobPID = killJob->PID; 
+                kill(killJobPID, SIGKILL);
             }
             
         }
@@ -118,8 +129,7 @@ static void nuke(const char **toks) {
                 }
             } else {
                 //KILL process iff shell has not exited
-                int killPID = toks[i];
-                int jobNumKill = getJobNum(killPID) != -1
+                int jobNumKill = getJobNum(strtol(process,NULL,0));
                 if (jobNumKill != -1)
                 {
                     job * killJob = jobList[jobNumKill];
@@ -135,6 +145,7 @@ static void nuke(const char **toks) {
             i++;
         }
     }
+    sigprocmask(SIG_UNBLOCK, &mask, NULL);
 }
 
 static void foreground(const char **toks) {
@@ -173,6 +184,12 @@ static void background(const char **toks) {
 }
 
 static void runProcess(const char **toks, bool bg) {
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+    sigaddset(&mask, SIGTERM);
+    sigaddset(&mask, SIGINT);    
+    sigprocmask(SIG_BLOCK, &mask, NULL);
     char *process = toks[0];
     int i = 0;
     char *args[MAXLINE] = {};
@@ -184,10 +201,7 @@ static void runProcess(const char **toks, bool bg) {
     args[i] = NULL;
     if (bg) //using & signal
     {
-        sigset_t mask;
-        sigemptyset(&mask);
-        sigaddset(&mask, SIGCHLD);
-        sigprocmask(SIG_BLOCK, &mask, NULL);
+        
         
         pid_t child = fork();
         if (child == 0) {
@@ -199,20 +213,40 @@ static void runProcess(const char **toks, bool bg) {
                 kill(getpid(), SIGKILL);
             }
         } else {
-            job childJob = {child, currJob++, RUNNING, toks[0], true};
-            jobList[currJob - 1] = &childJob;
+
+            job *childJob = malloc(sizeof(job));
+            childJob->PID = child;
+            childJob->jobNum = currJob++;
+            childJob->status = RUNNING;
+            childJob->name = strdup(process);
+            childJob->valid = true;
+            jobList[currJob - 1] = childJob;
             printJob(currJob - 1);
             sigprocmask(SIG_UNBLOCK, &mask, NULL);
         }
     } else {
-        int run = execvp(toks[0], args);
+        sigset_t mask;
+        sigemptyset(&mask);
+        sigaddset(&mask, SIGCHLD);
+        sigaddset(&mask, SIGTERM);
+        sigaddset(&mask, SIGINT);
+        sigprocmask(SIG_BLOCK, &mask, NULL);
+        int run = -1;//execvp(toks[0], args);
         if (run == -1)
         {
-            printf("FXN failed to run\n");
+            const char* msg = (char*)malloc(MAXLINE);
+            snprintf(msg, MAXLINE,"FXN Failed to run\n");
+            write(STDOUT_FILENO, msg, strlen(msg));
+
 
         } else {
-            printf("FXN run\n"); //should never get here
+            const char* msg = (char*)malloc(MAXLINE);
+            snprintf(msg, MAXLINE,"FXN Failed to run\n"); //should never get here
+            write(STDOUT_FILENO, msg, strlen(msg));
+
         }
+        sigprocmask(SIG_UNBLOCK, &mask, NULL);
+
     }     
 }
 
@@ -287,6 +321,8 @@ static void handler(int num) {
     sigset_t mask;
     sigemptyset(&mask);
     sigaddset(&mask, SIGCHLD);
+    sigaddset(&mask, SIGTERM);
+    sigaddset(&mask, SIGINT);
     sigprocmask(SIG_BLOCK, &mask, NULL);
 
     
@@ -313,3 +349,5 @@ int main(int argc, char **argv) {
     
     return repl();
 }
+
+
