@@ -142,7 +142,7 @@ static void nuke(const char **toks) {
                     job * killJob = jobList[jobNumKill];
                     if (!killJob || !killJob->valid) {
                         const char* msg = (char*)malloc(MAXLINE);
-                        snprintf(msg, MAXLINE,"ERROR: no job %d\n", currPID);
+                        snprintf(msg, MAXLINE,"ERROR: no PID %d\n", currPID);
                         write(STDOUT_FILENO, msg, strlen(msg));
                     }
                     if (killJob && killJob->status == 1)

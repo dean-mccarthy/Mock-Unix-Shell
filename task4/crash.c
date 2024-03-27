@@ -140,7 +140,7 @@ static void nuke(const char **toks) {
                     job * killJob = jobList[jobNumKill];
                     if (!killJob || !killJob->valid) {
                         const char* msg = (char*)malloc(MAXLINE);
-                        snprintf(msg, MAXLINE,"ERROR: no job %d\n", currPID);
+                        snprintf(msg, MAXLINE,"ERROR: no PID %d\n", currPID);
                         write(STDOUT_FILENO, msg, strlen(msg));
                     }
                     if (killJob && killJob->status == 1)
@@ -193,7 +193,7 @@ static void foreground(const char **toks) {
             job *pushJob = jobList[jobNum];
             if (!pushJob || !pushJob->valid) {
                 const char* msg = (char*)malloc(MAXLINE);
-                snprintf(msg, MAXLINE,"ERROR: no job %d\n", fgJob);
+                snprintf(msg, MAXLINE,"ERROR: no PID %d\n", fgJob);
                 write(STDOUT_FILENO, msg, strlen(msg));
                 error = true;
             }
