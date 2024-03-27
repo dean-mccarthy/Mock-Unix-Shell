@@ -122,6 +122,11 @@ static void nuke(const char **toks) {
                 }
                 
                 job * killJob = jobList[jobNumKill];
+                if (!killJob || !killJob->valid) {
+                    const char* msg = (char*)malloc(MAXLINE);
+                    snprintf(msg, MAXLINE,"ERROR: no job %d\n", jobNumKill);
+                    write(STDOUT_FILENO, msg, strlen(msg));
+                }
                 if (killJob && killJob->status == 1)
                 {
                     killJob->status = 2;
@@ -130,16 +135,26 @@ static void nuke(const char **toks) {
                 }
             } else {
                 //KILL process iff shell has not exited
-                int jobNumKill = getJobNum(process) != -1;
+                pid_t currPID = strtol(process,NULL,0);
+                int jobNumKill = getJobNum(currPID);
                 if (jobNumKill != -1)
                 {
                     job * killJob = jobList[jobNumKill];
+                    if (!killJob || !killJob->valid) {
+                        const char* msg = (char*)malloc(MAXLINE);
+                        snprintf(msg, MAXLINE,"ERROR: no job %d\n", currPID);
+                        write(STDOUT_FILENO, msg, strlen(msg));
+                    }
                     if (killJob && killJob->status == 1)
                     {
                         killJob->status = 2;
                         pid_t curPID = killJob->PID;
                         kill(killJob->PID, SIGKILL);
                     }
+                } else {
+                    const char* msg = (char*)malloc(MAXLINE);
+                    snprintf(msg, MAXLINE,"ERROR: no job %d\n", currPID);
+                    write(STDOUT_FILENO, msg, strlen(msg));
                 }
                 
             }
@@ -347,6 +362,4 @@ int main(int argc, char **argv) {
     
     return repl();
 } 
-
-
 

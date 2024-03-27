@@ -120,6 +120,11 @@ static void nuke(const char **toks) {
                 }
                 
                 job * killJob = jobList[jobNumKill];
+                if (!killJob || !killJob->valid) {
+                    const char* msg = (char*)malloc(MAXLINE);
+                    snprintf(msg, MAXLINE,"ERROR: no job %d\n", jobNumKill);
+                    write(STDOUT_FILENO, msg, strlen(msg));
+                }
                 if (killJob && killJob->status == 1)
                 {
                     killJob->status = 2;
@@ -128,16 +133,26 @@ static void nuke(const char **toks) {
                 }
             } else {
                 //KILL process iff shell has not exited
-                int jobNumKill = getJobNum(process) != -1;
+                pid_t currPID = strtol(process,NULL,0);
+                int jobNumKill = getJobNum(currPID);
                 if (jobNumKill != -1)
                 {
                     job * killJob = jobList[jobNumKill];
+                    if (!killJob || !killJob->valid) {
+                        const char* msg = (char*)malloc(MAXLINE);
+                        snprintf(msg, MAXLINE,"ERROR: no job %d\n", currPID);
+                        write(STDOUT_FILENO, msg, strlen(msg));
+                    }
                     if (killJob && killJob->status == 1)
                     {
                         killJob->status = 2;
                         pid_t curPID = killJob->PID;
                         kill(killJob->PID, SIGKILL);
                     }
+                } else {
+                    const char* msg = (char*)malloc(MAXLINE);
+                    snprintf(msg, MAXLINE,"ERROR: no job %d\n", currPID);
+                    write(STDOUT_FILENO, msg, strlen(msg));
                 }
                 
             }
@@ -152,6 +167,7 @@ static void foreground(const char **toks) {
         const char *msg = "ERROR: fg requires at least one argument\n";
         write(STDERR_FILENO, msg, strlen(msg));
     } else {
+        bool error = false;
         char *process = toks[1];
         pid_t fgJob = 0;
         if (process[0] == '%')
@@ -163,20 +179,38 @@ static void foreground(const char **toks) {
                 jobNumFG = jobNumFG*10 + (process[numReader] - '0');
                 numReader++;
             }
-            fgJob = jobList[jobNumFG]->PID;
+            job *pushJob = jobList[jobNumFG];
+            if (!pushJob || !pushJob->valid) {
+                const char* msg = (char*)malloc(MAXLINE);
+                snprintf(msg, MAXLINE,"ERROR: no job %d\n", jobNumFG);
+                write(STDOUT_FILENO, msg, strlen(msg));
+                error = true;
+            } else {fgJob = pushJob->PID;}
 
         } else {
             fgJob = strtol(toks[1],NULL,0);
+            int jobNum = getJobNum(fgJob);
+            job *pushJob = jobList[jobNum];
+            if (!pushJob || !pushJob->valid) {
+                const char* msg = (char*)malloc(MAXLINE);
+                snprintf(msg, MAXLINE,"ERROR: no job %d\n", fgJob);
+                write(STDOUT_FILENO, msg, strlen(msg));
+                error = true;
+            }
         }
-        pid_t pidOut;
-        int status;
+        if (!error)
+        {
+            pid_t pidOut;
+            int status;
+            
+            waitpid(fgJob, &status, 0);
+            int jobNum = getJobNum(fgJob);
+            job *deadJob = jobList[jobNum];
+            deadJob->valid = false;
+            if (deadJob->status != KILLED) deadJob->status = FINISHED;
+            printJob(jobNum);
+        }
         
-        waitpid(fgJob, &status, 0);
-        int jobNum = getJobNum(fgJob);
-        job *deadJob = jobList[jobNum];
-        deadJob->valid = false;
-        if (deadJob->status != KILLED) deadJob->status = FINISHED;
-        printJob(jobNum);
     }
 }
 
