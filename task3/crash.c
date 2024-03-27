@@ -13,14 +13,12 @@
 #define FINISHED 0
 #define SUSPENDED -1
 
-
 typedef struct {
     pid_t PID;
     int jobNum;
     int status; //1:running, 0:finished, -1:suspended 2:killed
     const char *name;
     bool valid;
-    bool dump;
 } job;
 
 
@@ -70,13 +68,11 @@ static void printJob(int i) {
             default:
                 status = NULL;
         }
-        const char *outState = "";
-        if (currJob->dump) outState = " (core dumped)"; 
-        
         const char* msg = (char*)malloc(MAXLINE);
         const char *name = currJob->name;
-        snprintf(msg, MAXLINE, "[%d] (%d)  %s%s  %s\n", i, currJob->PID, status, outState, currJob->name);
+        snprintf(msg, MAXLINE, "[%d] (%d)  %s  %s\n", i, currJob->PID, status, currJob->name);
         write(STDOUT_FILENO, msg, strlen(msg));
+
 }
 
 static void jobs() {
@@ -134,7 +130,7 @@ static void nuke(const char **toks) {
                 }
             } else {
                 //KILL process iff shell has not exited
-                int jobNumKill = getJobNum(strtol(process,NULL,0));
+                int jobNumKill = getJobNum(process) != -1;
                 if (jobNumKill != -1)
                 {
                     job * killJob = jobList[jobNumKill];
@@ -214,8 +210,10 @@ static void runProcess(const char **toks, bool bg) {
             int run = execvp(toks[0], args);
             if (run == -1)
             {
-                printf("Function not found\n");
-                kill(getpid(), SIGKILL);
+                const char* msg = (char*)malloc(MAXLINE);
+                snprintf(msg, MAXLINE,"ERROR: cannot run %s\n", strdup(process));
+                write(STDOUT_FILENO, msg, strlen(msg));
+                exit(EXIT_FAILURE);
             }
         } else {
 
@@ -225,7 +223,6 @@ static void runProcess(const char **toks, bool bg) {
             childJob->status = RUNNING;
             childJob->name = strdup(process);
             childJob->valid = true;
-            childJob->dump = false;
             jobList[currJob - 1] = childJob;
             printJob(currJob - 1);
             sigprocmask(SIG_UNBLOCK, &mask, NULL);
@@ -241,14 +238,9 @@ static void runProcess(const char **toks, bool bg) {
         if (run == -1)
         {
             const char* msg = (char*)malloc(MAXLINE);
-            snprintf(msg, MAXLINE,"FXN Failed to run\n");
+            snprintf(msg, MAXLINE,"ERROR: cannot run %s\n", strdup(process));
             write(STDOUT_FILENO, msg, strlen(msg));
 
-
-        } else {
-            const char* msg = (char*)malloc(MAXLINE);
-            snprintf(msg, MAXLINE,"FXN Failed to run\n"); //should never get here
-            write(STDOUT_FILENO, msg, strlen(msg));
 
         }
         sigprocmask(SIG_UNBLOCK, &mask, NULL);
@@ -339,15 +331,6 @@ static void handler(int num) {
         int jobNum = getJobNum(pidOut);
         job *deadJob = jobList[jobNum];
         deadJob->valid = false;
-        #ifdef WCOREDUMP
-        if (WIFSIGNALED(status))
-            {
-                deadJob->dump = WCOREDUMP(status);
-            }
-        #endif
-        
-        
-        
         if (deadJob->status != KILLED) deadJob->status = FINISHED;
         printJob(jobNum);
     }
@@ -363,6 +346,7 @@ int main(int argc, char **argv) {
     sigaction(SIGCHLD, &sigact, NULL);
     
     return repl();
-}
+} 
+
 
 
