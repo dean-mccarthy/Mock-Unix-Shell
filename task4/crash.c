@@ -218,7 +218,6 @@ static void runProcess(const char **toks, bool bg) {
         childJob->name = strdup(process);
         childJob->valid = true;
         jobList[currJob - 1] = childJob;
-        printJob(currJob - 1);
         if (!bg) { //if foreground, wait for death
             pid_t pidOut;
             int status;
@@ -229,6 +228,8 @@ static void runProcess(const char **toks, bool bg) {
             deadJob->valid = false;
             if (deadJob->status != KILLED) deadJob->status = FINISHED;
             printJob(jobNum);
+        } else {
+            printJob(currJob - 1);
         }
         sigprocmask(SIG_UNBLOCK, &mask, NULL);
     } 
