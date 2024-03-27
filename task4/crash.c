@@ -153,12 +153,30 @@ static void foreground(const char **toks) {
         write(STDERR_FILENO, msg, strlen(msg));
     } else {
         char *process = toks[1];
+        pid_t fgJob = 0;
         if (process[0] == '%')
         {
-            //puts job %n in foreground
+            int jobNumFG = 0;
+            int numReader = 1;
+            while (process[numReader] != '\0')
+            {
+                jobNumFG = jobNumFG*10 + (process[numReader] - '0');
+                numReader++;
+            }
+            fgJob = jobList[jobNumFG]->PID;
+
         } else {
-            //puts process n in foreground
+            fgJob = strtol(toks[1],NULL,0);
         }
+        pid_t pidOut;
+        int status;
+        
+        waitpid(fgJob, &status, 0);
+        int jobNum = getJobNum(fgJob);
+        job *deadJob = jobList[jobNum];
+        deadJob->valid = false;
+        if (deadJob->status != KILLED) deadJob->status = FINISHED;
+        printJob(jobNum);
     }
 }
 
