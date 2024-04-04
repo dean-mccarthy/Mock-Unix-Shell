@@ -2,17 +2,7 @@
 Lab 5: A Shell Game
 ===================
 
-.. contents:: Contents
-    :depth: 2
-
-TL;DR
-=====
-
-Deadlines
----------
-
-- Tasks 1, 2: 2024-03-17, 23:59 Vancouver time
-- Tasks 3–5: 2024-03-25, 23:59 Vancouver time
+This was a simple Unix shell created for a 2nd year computer engineering course at UBC. My implementation completed includes functionality from tasks 1-4, with minimal issues
 
 
 Summary
