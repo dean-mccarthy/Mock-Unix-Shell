@@ -1,5 +1,5 @@
 ===================
-Lab 5: A Shell Game
+Mock Unix Shell
 ===================
 
 This was a simple Unix shell created for a 2nd year computer engineering course at UBC. My implementation completed includes functionality from tasks 1-4, with minimal issues
